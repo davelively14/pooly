@@ -7,7 +7,7 @@ defmodule Pooly.WorkerSupervisor do
 
   # Pattern match to ensure that the passed variable, mfa, is a 3 element tuple
   # The variable mfa stands for Module, Function, Argument.
-  def start_link({_,_,} = mfa) do
+  def start_link({_,_,_} = mfa) do
     Supervisor.start_link(__MODULE__, mfa)
   end
 
