@@ -21,7 +21,8 @@ defmodule Pooly.Server do
   #############
 
   # This callback is always called by GenServer.start_link/3. Assigns the
-  # supervisor pid to the State structure, and calls init/3
+  # supervisor pid to the State structure, and calls init/2. init/2 is a series
+  # of functions that pattern match on potential pool_config options.
   def init([sup, pool_config]) when is_pid(sup) do
     init(pool_config, %State{sup: sup})
   end
