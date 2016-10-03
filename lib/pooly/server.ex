@@ -42,8 +42,8 @@ defmodule Pooly.Server do
     init(rest, state)
   end
 
-  # Base case when the options list is empty. Sends a message to start the
-  # worker supervisor.
+  # Base case once the options list has been evaluated. Sends a message to start
+  # the worker supervisor.
   def init([], state) do
     send(self, :start_worker_supervisor)
     {:ok, state}
@@ -51,7 +51,11 @@ defmodule Pooly.Server do
 
   def handle_info(:start_worker_supervisor, state = %{sup: sup, mfa: mfa, size: size}) do
     {:ok, worker_sup} = Supervisor.start_child(sup, supervisor_spec(mfa))
+
+    # Private function that creates "size" number of workers with the newly
+    # created supervisor.
     workers = prepopulate(size, worker_sup)
+
     {:noreply, %{state | worker_sup: worker_sup, workers: workers}}
   end
 
@@ -59,6 +63,7 @@ defmodule Pooly.Server do
   # Private Functions #
   #####################
 
+  # Starts the process as a Supervisor instead of a standard worker
   def supervisor_spec(mfa) do
     opts = [restart: :temporary]
     supervisor(Pooly.WorkerSupervisor, [mfa], opts)
