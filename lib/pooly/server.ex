@@ -63,9 +63,34 @@ defmodule Pooly.Server do
   # Private Functions #
   #####################
 
-  # Starts the process as a Supervisor instead of a standard worker
-  def supervisor_spec(mfa) do
+  # Starts the process as a Supervisor instead of a standard worker. Supervisor
+  # will not restart (:temporary) by default. We will use coustom recovery rules
+  defp supervisor_spec(mfa) do
     opts = [restart: :temporary]
     supervisor(Pooly.WorkerSupervisor, [mfa], opts)
+  end
+
+  # Default preopulate starting point. Initializes worker result list to empty
+  defp prepopulate(size, sup) do
+    prepopulate(size, sup, [])
+  end
+
+  # When size counter drops below 1, returns workers list to top.
+  defp prepopulate(size, _sup, workers) when size < 1 do
+    workers
+  end
+
+  # Decreases size, adds new_worker to the list of workers.
+  defp prepopulate(size, sup, workers) do
+    prepopulate(size - 1, sup, [new_worker(sup) | workers])
+  end
+
+  # Spawns a new worker process and returns the pid. Empty arguments array is
+  # passed to start_child/2. Since Pooly.WorkerSupervisor has set a restart
+  # strategy (:simple_one_for_one), the child specification has already been
+  # defined. 
+  defp new_worker(sup) do
+    {:ok, worker} = Supervisor.start_child(sup, [[]])
+    worker
   end
 end
