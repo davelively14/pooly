@@ -4,7 +4,7 @@ defmodule Pooly.Server do
 
   # Define Struct to maintain the state of the server
   defmodule State do
-    defstruct sup: nil, size: nil, mfa: nil
+    defstruct sup: nil, size: nil, mfa: nil, monitors: nil
   end
 
   #######
@@ -16,6 +16,10 @@ defmodule Pooly.Server do
     GenServer.start_link(__MODULE__, [sup, pool_config], name: __MODULE__)
   end
 
+  def checkout do
+    GenServer.call(__MODULE__, :checkout)
+  end
+
   #############
   # Callbacks #
   #############
@@ -24,7 +28,8 @@ defmodule Pooly.Server do
   # supervisor pid to the State structure, and calls init/2. init/2 is a series
   # of functions that pattern match on potential pool_config options.
   def init([sup, pool_config]) when is_pid(sup) do
-    init(pool_config, %State{sup: sup})
+    monitors = :ets.new(:monitors, [:private])
+    init(pool_config, %State{sup: sup, monitors: monitors})
   end
 
   # Pattern match for the mfa option in pool_config and stores in state
@@ -59,6 +64,20 @@ defmodule Pooly.Server do
     {:noreply, %{state | worker_sup: worker_sup, workers: workers}}
   end
 
+  def handle_call(:checkout, {from_pid, _ref}, %{workers: workers, monitors: monitors} = state) do
+
+    # If workers is empty, then no workers can be assigned. Otherwise, this will
+    # assign the worker to the calling process.
+    case workers do
+      [worker|rest] ->
+        ref = Process.monitor(from_pid)
+        true = :ets.insert(monitors, {worker, ref})
+        {:reply, worker, %{state | workers: rest}}
+      [] ->
+        {:reply, :noproc, state}
+    end
+  end
+
   #####################
   # Private Functions #
   #####################
@@ -88,7 +107,7 @@ defmodule Pooly.Server do
   # Spawns a new worker process and returns the pid. Empty arguments array is
   # passed to start_child/2. Since Pooly.WorkerSupervisor has set a restart
   # strategy (:simple_one_for_one), the child specification has already been
-  # defined. 
+  # defined.
   defp new_worker(sup) do
     {:ok, worker} = Supervisor.start_child(sup, [[]])
     worker
