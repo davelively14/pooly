@@ -4,7 +4,7 @@ defmodule Pooly.Server do
 
   # Define Struct to maintain the state of the server
   defmodule State do
-    defstruct sup: nil, size: nil, mfa: nil, monitors: nil, worker_sup: nil
+    defstruct sup: nil, size: nil, mfa: nil, monitors: nil, worker_sup: nil, workers: nil
   end
 
   #######
