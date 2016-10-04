@@ -104,6 +104,21 @@ defmodule Pooly.Server do
     {:reply, {length(workers), :ets.info(monitors, :size)}, state}
   end
 
+  # When a monitored process goes down, this will remove it from the ETS table
+  # of monitored processes and adds the worker back to the into the state.
+  def handle_info({:DOWN, ref, _, _, _}, state = %{monitors: monitors, workers: workers}) do
+    case :ets.match(monitors, {:"$1", ref}) do
+      # $1 will return the first element of the tuple from the match were ref
+      # is the second element. In this case, it's the pid in the ETS table.
+      [[pid]] ->
+        true = :ets.delete(monitors, pid)
+        new_state = %{state | workers: [pid|workers]}
+        {:noreply, state}
+      [[]] ->
+        {:noreply, state}
+    end
+  end
+
   #####################
   # Private Functions #
   #####################
