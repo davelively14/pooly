@@ -36,6 +36,10 @@ defmodule Pooly.Server do
   # supervisor pid to the State structure, and calls init/2. init/2 is a series
   # of functions that pattern match on potential pool_config options.
   def init([sup, pool_config]) when is_pid(sup) do
+
+    # Since we DO want the worker processes to crash if the server crashes, but
+    # DON'T want the server to crash if a worker process crashes, we trap exits
+    Process.flag(:trap_exit, true)
     monitors = :ets.new(:monitors, [:private])
     init(pool_config, %State{sup: sup, monitors: monitors})
   end
@@ -114,6 +118,24 @@ defmodule Pooly.Server do
         true = :ets.delete(monitors, pid)
         new_state = %{state | workers: [pid|workers]}
         {:noreply, state}
+      [[]] ->
+        {:noreply, state}
+    end
+  end
+
+  # Since we are trapping exits in the event that a worker process goes down, we
+  # can handle that separately here. Demonitors, removes entry from ETS table,
+  # and a new workers is created and inserted into the workers field.
+  def handle_info({:EXIT, pid, _reason}, state = %{monitors: monitors, workers: workers, worker_sup: worker_sup}) do
+    case :ets.lookup(monitors, pid) do
+      [{pid, ref}] ->
+        # Demonitor
+        true = Process.demonitor(ref)
+        # Remove from ETS table (monitors)
+        true = :ets.delete(monitors, pid)
+        # Create replacement worker, add to pool
+        new_state = %{state | workers: [new_worker(worker_sup)|workers]}
+        {:noreply, new_state}
       [[]] ->
         {:noreply, state}
     end
