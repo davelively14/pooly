@@ -1,23 +1,10 @@
 # Pooly
 
-**TODO: Add description**
+From Chapter 6 and 7 of *The Little Elixir & OTP Guidebook* by Benjamin Tan Wei Hao.
 
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
-
-  1. Add `pooly` to your list of dependencies in `mix.exs`:
-
-    ```elixir
-    def deps do
-      [{:pooly, "~> 0.1.0"}]
-    end
-    ```
-
-  2. Ensure `pooly` is started before your application:
-
-    ```elixir
-    def application do
-      [applications: [:pooly]]
-    end
-    ```
+Lessons learned in chapter 6:
+- OTP Supervisor behavior
+- Supervisor restart strategies
+- Using ETS to store state
+- How to construct Supervisor hierarchies, both static and dynamic  The various Supervisor and child specification options
+- Implementing a basic worker-pool application
