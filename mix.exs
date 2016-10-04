@@ -3,7 +3,7 @@ defmodule Pooly.Mixfile do
 
   def project do
     [app: :pooly,
-     version: "0.1.0",
+     version: "0.0.1",
      elixir: "~> 1.3",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
@@ -13,8 +13,10 @@ defmodule Pooly.Mixfile do
   # Configuration for the OTP application
   #
   # Type "mix help compile.app" for more information
+  # Starts the Pooly application
   def application do
-    [applications: [:logger]]
+    [applications: [:logger],
+              mod: {Pooly, []}]
   end
 
   # Dependencies can be Hex packages:
