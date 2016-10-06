@@ -6,7 +6,7 @@ defmodule Pooly.PoolsSupervisor do
   #######
 
   # Starts the PoolsSupervisor and makes it a self-named process
-  def start_link do
+  def start_link() do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)
   end
 

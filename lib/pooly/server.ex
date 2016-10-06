@@ -40,7 +40,7 @@ defmodule Pooly.Server do
   end
 
   def handle_info({:start_pool, pool_config}, state) do
-    {:ok, _pool_sup} = Supervisor.start_child(Poly.PoolsSupervisor, supervisor_spec(pool_config))
+    {:ok, _pool_sup} = Supervisor.start_child(Pooly.PoolsSupervisor, supervisor_spec(pool_config))
 
     {:noreply, state}
   end
