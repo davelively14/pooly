@@ -5,24 +5,27 @@ defmodule Pooly.Supervisor do
   # API #
   #######
 
-  def start_link(pool_config) do
-    Supervisor.start_link(__MODULE__, pool_config)
+  # Pooly.Supervisor is now a named process, which allows other processes to
+  # reference this by name, in this case the module (Pooly.Supervisor)
+  def start_link(pools_config) do
+    Supervisor.start_link(__MODULE__, pools_config, name: __MODULE__)
   end
 
   #############
   # Callbacks #
   #############
 
-  def init(pool_config) do
+  def init(pools_config) do
 
-    # Pooly.Server.start_link/2 takes two arguments: pid of the top-level
-    # supervisor and the pool configuration.
+    # Since Poly.Server is a named process, we no longer have to pass it to the
+    # Pooly.Server worker
     children = [
-      worker(Pooly.Server, [self, pool_config])
+      supervisor(Pooly.PoolsSupervisor, []),
+      worker(Pooly.Server, [pools_config])
     ]
 
     # Uses :one_for_all, which ensures that if either Supervisor or
-    # WorkerSupervisor goes down, everything goes down.
+    # either child crashes, everything crashes.
     opts = [strategy: :one_for_all]
 
     supervise(children, opts)
