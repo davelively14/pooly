@@ -4,7 +4,7 @@ defmodule Pooly.PoolServer do
 
   # Define Struct to maintain the state of the server
   defmodule State do
-    defstruct pool_sup: nil, worker_sup: nil, monitors: nil, size: nil, workers: nil, name: nil, mfa: nil
+    defstruct pool_sup: nil, worker_sup: nil, monitors: nil, size: nil, workers: nil, name: nil, mfa: nil, max_overflow: nil, overflow: nil
   end
 
   #######
@@ -48,7 +48,7 @@ defmodule Pooly.PoolServer do
     init(pool_config, %State{pool_sup: pool_sup, monitors: monitors})
   end
 
-  # These next three functions will pattern match on pool_config, attempt to
+  # These next four functions will pattern match on pool_config, attempt to
   # find specific objects, and add them to the state.
 
   def init([{:name, name}|rest], state) do
@@ -61,6 +61,10 @@ defmodule Pooly.PoolServer do
 
   def init([{:size, size}|rest], state) do
     init(rest, %{state | size: size})
+  end
+
+  def init([{:max_overflow, max_overflow}|rest], state) do
+    init(rest, %{state | max_overflow: max_overflow})
   end
 
   # Base case. Once the options list has been evaluated. Sends a message to
