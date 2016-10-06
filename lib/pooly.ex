@@ -3,12 +3,22 @@ defmodule Pooly do
 
   # Called by default when included in mix.exs.
   def start(_type, _args) do
-    pool_config = [mfa: {SampleWorker, :start_link, []}, size: 5]
-    start_pool(pool_config)
+
+    # Each pool gets its own configuration
+    pools_config =
+      [
+        [name: "Pool1",
+          mfa: {SampleWorker, :start_link, []}, size: 2],
+        [name: "Pool2",
+          mfa: {SampleWorker, :start_link, []}, size: 3],
+        [name: "Pool3",
+          mfa: {SampleWorker, :start_link, []}, size: 4],
+      ]
+    start_pools(pools_config)
   end
 
-  def start_pool(pool_config) do
-    Pooly.Supervisor.start_link(pool_config)
+  def start_pools(pools_config) do
+    Pooly.Supervisor.start_link(pools_config)
   end
 
   # Below is a series of functions that allow the user to interact with the
