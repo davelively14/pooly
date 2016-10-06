@@ -26,7 +26,9 @@ defmodule Pooly.Supervisor do
 
     # Uses :one_for_all, which ensures that if either Supervisor or
     # either child crashes, everything crashes.
-    opts = [strategy: :one_for_all]
+    opts = [strategy: :one_for_all,
+            max_restart: 1,
+            max_time: 3600]
 
     supervise(children, opts)
   end

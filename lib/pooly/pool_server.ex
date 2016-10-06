@@ -4,7 +4,7 @@ defmodule Pooly.PoolServer do
 
   # Define Struct to maintain the state of the server
   defmodule State do
-    defstruct pool_sup: nil, size: nil, mfa: nil, monitors: nil, worker_sup: nil, workers: nil, name: nil
+    defstruct pool_sup: nil, worker_sup: nil, monitors: nil, size: nil, workers: nil, name: nil, mfa: nil
   end
 
   #######
@@ -21,12 +21,16 @@ defmodule Pooly.PoolServer do
   end
 
   def checkin(pool_name, worker_pid) do
-    GenServer.call(name(pool_name), {:checkin, worker_pid})
+    GenServer.cast(name(pool_name), {:checkin, worker_pid})
   end
 
   def status(pool_name) do
     GenServer.call(name(pool_name), :status)
   end
+
+   def terminate(_reason, _state) do
+     :ok
+   end
 
   #############
   # Callbacks #
@@ -47,21 +51,16 @@ defmodule Pooly.PoolServer do
   # These next three functions will pattern match on pool_config, attempt to
   # find specific objects, and add them to the state.
 
-  def init([{:name, name} | rest], state) do
+  def init([{:name, name}|rest], state) do
     init(rest, %{state | name: name})
   end
 
-  def init([{:mfa, mfa} | rest], state) do
+  def init([{:mfa, mfa}|rest], state) do
     init(rest, %{state | mfa: mfa})
   end
 
-  def init([{:size, size} | rest], state) do
+  def init([{:size, size}|rest], state) do
     init(rest, %{state | size: size})
-  end
-
-  # Ignores any other option not provided, continues to iterate
-  def init([_|rest], state) do
-    init(rest, state)
   end
 
   # Base case. Once the options list has been evaluated. Sends a message to
@@ -69,6 +68,11 @@ defmodule Pooly.PoolServer do
   def init([], state) do
     send(self, :start_worker_supervisor)
     {:ok, state}
+  end
+
+  # Ignores any other option not provided, continues to iterate
+  def init([_|rest], state) do
+    init(rest, state)
   end
 
   def handle_call(:checkout, {from_pid, _ref}, %{workers: workers, monitors: monitors} = state) do
@@ -120,15 +124,15 @@ defmodule Pooly.PoolServer do
   # When a monitored process goes down, this will remove it from the ETS table
   # of monitored processes and adds the worker back to the into the state so it.
   # can be used again
-  def handle_info({:DOWN, ref, _, _}, state = %{monitors: monitors, workers: workers}) do
-    case :ets.match(monitors, {:"$1", ref}) do
+  def handle_info({:DOWN, ref, _, _, _}, state = %{monitors: monitors, workers: workers}) do
+      case :ets.match(monitors, {:"$1", ref}) do
 
       # $1 will return the first element of the tuple from the match were ref
       # is the second element. In this case, it's the pid in the ETS table.
       [[pid]] ->
         true = :ets.delete(monitors, pid)
         new_state = %{state | workers: [pid|workers]}
-        {:noreply, state}
+        {:noreply, new_state}
       [[]] ->
         {:noreply, state}
     end
@@ -151,7 +155,7 @@ defmodule Pooly.PoolServer do
 
         # Creates a replacement worker using the private function new_worker and
         # combines it with the existing workers list from the current state.
-        new_state = %{state | workers: [new_worker(pool_sup) | workers]}
+        new_state = %{state | workers: [new_worker(pool_sup)|workers]}
         {:noreply, new_state}
       _ ->
         {:noreply, state}
@@ -193,6 +197,8 @@ defmodule Pooly.PoolServer do
   # defined.
   defp new_worker(sup) do
     {:ok, worker} = Supervisor.start_child(sup, [[]])
+    Process.link(worker)
+    worker
   end
 
   # Helper function to return a unique child specification, of a supervisor
@@ -200,7 +206,7 @@ defmodule Pooly.PoolServer do
   # "WorkerSupervisor". Those id options have to be unique. If it's not, you'll
   # get an :already_started error.
   defp supervisor_spec(name, mfa) do
-    opts = [id: name <> "WorkerSupervisor", restart: :temporary]
+    opts = [id: name <> "WorkerSupervisor", shutdown: 10000, restart: :temporary]
 
     # This is the child specification. Both mfa and the pid of this server are
     # included

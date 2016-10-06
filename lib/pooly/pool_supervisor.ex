@@ -1,4 +1,4 @@
-defmodule Pooly.PoolsSupervisor do
+defmodule Pooly.PoolSupervisor do
   use Supervisor
 
   #######

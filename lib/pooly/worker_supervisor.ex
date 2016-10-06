@@ -23,8 +23,8 @@ defmodule Pooly.WorkerSupervisor do
     # Specifies that the worker is always to be restarted (:permanent) and
     # passes the function, f, that starts the worker. Added 5 second shutdown,
     # which gives the worker 5 second timeout for the worker to shutdown on its
-    # own, otherwise it's just killed. 
-    worker_opts = [restart: :permanent, function: f, shutdown: 5000]
+    # own, otherwise it's just killed.
+    worker_opts = [shutdown: 5000, function: f]
 
     # Creates a list of the child processes. The worker function creates a child
     # specification.
@@ -34,7 +34,9 @@ defmodule Pooly.WorkerSupervisor do
     # based on a single specification. The max_restarts indicates the maximum
     # number of restarts in max_seconds amount of time before termination. By
     # default, this is set to max_restarts: 3, max_seconds: 5
-    opts = [strategy: :simple_one_for_one, max_restarts: 5, max_seconds: 5]
+    opts = [strategy: :simple_one_for_one,
+            max_restarts: 5,
+            max_seconds:  5]
 
     # The return value must be a supervisor specification
     supervise(children, opts)
