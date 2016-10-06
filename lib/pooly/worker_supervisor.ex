@@ -7,18 +7,24 @@ defmodule Pooly.WorkerSupervisor do
 
   # Pattern match to ensure that the passed variable, mfa, is a 3 element tuple
   # The variable mfa stands for Module, Function, Argument.
-  def start_link({_,_,_} = mfa) do
-    Supervisor.start_link(__MODULE__, mfa)
+  def start_link(pool_server, {_,_,_} = mfa) do
+    Supervisor.start_link(__MODULE__, [pool_server, mfa])
   end
 
   #############
   # Callbacks #
   #############
 
-  def init({m,f,a}) do
+  def init([pool_server, {m,f,a}]) do
+    # Creates a link to the corresponding pool server. If either go down, there
+    # is no point in either continuing to exist.
+    Process.link(pool_server)
+
     # Specifies that the worker is always to be restarted (:permanent) and
-    # passes the function, f, that starts the worker.
-    worker_opts = [restart: :permanent, function: f]
+    # passes the function, f, that starts the worker. Added 5 second shutdown,
+    # which gives the worker 5 second timeout for the worker to shutdown on its
+    # own, otherwise it's just killed. 
+    worker_opts = [restart: :permanent, function: f, shutdown: 5000]
 
     # Creates a list of the child processes. The worker function creates a child
     # specification.

@@ -134,6 +134,12 @@ defmodule Pooly.PoolServer do
     end
   end
 
+  # This will pattern match when the worker supervisor exits. This lets us know
+  # why it crashed and will stop the pool_server as well.
+  def handle_info({:EXIT, worker_sup, reason}, state = %{worker_sup: worker_sup}) do
+    {:stop, reason, state}
+  end
+
   # Since we are trapping exits in the event that a worker process goes down, we
   # can handle that separately here. Demonitors, removes entry from ETS table,
   # and a new workers is created and inserted into the workers field.
