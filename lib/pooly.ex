@@ -21,15 +21,15 @@ defmodule Pooly do
   # Below is a series of functions that allow the user to interact with the
   # server without having to call Pooly.Server every time.
 
-  def checkout do
-    Pooly.Server.checkout
+  def checkout(pool_name) do
+    Pooly.Server.checkout(pool_name)
   end
 
-  def checkin(worker_pid) do
-    Pooly.Server.checkin(worker_pid)
+  def checkin(pool_name, worker_pid) do
+    Pooly.Server.checkin(pool_name, worker_pid)
   end
 
-  def status do
-    Pooly.Server.status
+  def status(pool_name) do
+    Pooly.Server.status(pool_name)
   end
 end
