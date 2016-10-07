@@ -79,7 +79,12 @@ defmodule Pooly.PoolServer do
     init(rest, state)
   end
 
-  def handle_call(:checkout, {from_pid, _ref}, %{workers: workers, monitors: monitors} = state) do
+  def handle_call(:checkout, {from_pid, _ref}, state) do
+    %{workers: workers,
+      monitors: monitors,
+      worker_sup: worker_sup,
+      overflow: overflow,
+      max_overflow: max_overflow} = state
 
     # If workers is empty, then no workers can be assigned. Otherwise, this will
     # assign the worker to the calling process.
@@ -88,6 +93,10 @@ defmodule Pooly.PoolServer do
         ref = Process.monitor(from_pid)
         true = :ets.insert(monitors, {worker, ref})
         {:reply, worker, %{state | workers: rest}}
+      [] when max_overflow > 0 and overflow < max_overflow ->
+        {worker, ref} = new_worker(worker_sup, from_pid)
+        true = :ets.insert(monitors, {worker, ref})
+        {:reply, worker, %{state | overflow: overflow + 1}}
       [] ->
         {:reply, :noproc, state}
     end
@@ -203,6 +212,13 @@ defmodule Pooly.PoolServer do
     {:ok, worker} = Supervisor.start_child(sup, [[]])
     Process.link(worker)
     worker
+  end
+
+  # Used for overflow workers. Needs the from_pid to setup monitor.
+  defp new_worker(sup, from_pid) do
+    pid = new_worker(sup)
+    ref = Process.monitor(from_pid)
+    {pid, ref}
   end
 
   # Helper function to return a unique child specification, of a supervisor
