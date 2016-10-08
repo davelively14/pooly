@@ -127,8 +127,8 @@ defmodule Pooly.PoolServer do
     # supervisor_spec to start the child supervisor.
     {:ok, worker_sup} = Supervisor.start_child(pool_sup, supervisor_spec(name, mfa))
 
-    # Private function that creates "size" number of workers within the newly
-    # created supervisor and returns their pids as a list.
+    # Private function that creates a specified number of workers (size) within
+    # the newly created supervisor and returns their pids as a list.
     workers = prepopulate(size, worker_sup)
 
     {:noreply, %{state | worker_sup: worker_sup, workers: workers}}
