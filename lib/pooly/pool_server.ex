@@ -4,7 +4,7 @@ defmodule Pooly.PoolServer do
 
   # Define Struct to maintain the state of the server
   defmodule State do
-    defstruct pool_sup: nil, worker_sup: nil, monitors: nil, size: nil, workers: nil, name: nil, mfa: nil, max_overflow: nil, overflow: nil
+    defstruct pool_sup: nil, worker_sup: nil, monitors: nil, size: nil, workers: nil, name: nil, mfa: nil, max_overflow: nil, overflow: nil, waiting: nil
   end
 
   #######
@@ -231,5 +231,29 @@ defmodule Pooly.PoolServer do
     # This is the child specification. Both mfa and the pid of this server are
     # included
     supervisor(Pooly.WorkerSupervisor, [self, mfa], opts)
+  end
+
+  def handle_checkin(pid, state) do
+    %{worker_sup: worker_sup,
+      workers: workers,
+      monitors: monitors,
+      overflow: overflow} = state
+
+    # Checks the pool to see if any overflow. If so, terminates process via
+    # private function dismiss_worker, reduces overflow count by one. If no
+    # overflow, simply adds the pid back to the workers pool.
+    # TODO add "monitor: empty" to state here once implemented.
+    if overflow > 0 do
+      :ok = dismiss_worker(worker_sup, pid)
+      %{state | overflow: overflow - 1}
+    else
+      %{state | workers: [pid | workers], overflow: 0}
+    end
+  end
+
+  # Unlinks the woker and terminates the child. 
+  defp dismiss_worker(sup, pid) do
+    true = Process.unlink(pid)
+    Supervisor.terminate_child(sup, pid)
   end
 end
