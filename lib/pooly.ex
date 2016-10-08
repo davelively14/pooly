@@ -1,6 +1,8 @@
 defmodule Pooly do
   use Application
 
+  @timeout 5000
+
   # Called by default when included in mix.exs.
   def start(_type, _args) do
 
@@ -21,8 +23,8 @@ defmodule Pooly do
   # Below is a series of functions that allow the user to interact with the
   # server without having to call Pooly.Server every time.
 
-  def checkout(pool_name) do
-    Pooly.Server.checkout(pool_name)
+  def checkout(pool_name, block \\ true, timeout \\ @timeout) do
+    Pooly.Server.checkout(pool_name, block, timeout)
   end
 
   def checkin(pool_name, worker_pid) do

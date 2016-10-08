@@ -16,8 +16,8 @@ defmodule Pooly.PoolServer do
     GenServer.start_link(__MODULE__, [pool_sup, pool_config], name: name(pool_config[:name]))
   end
 
-  def checkout(pool_name) do
-    GenServer.call(name(pool_name), :checkout)
+  def checkout(pool_name, block, timeout) do
+    GenServer.call(name(pool_name), {:checkout, block}, timeout)
   end
 
   def checkin(pool_name, worker_pid) do
@@ -45,7 +45,8 @@ defmodule Pooly.PoolServer do
     # DON'T want the server to crash a worker process crashes, we trap exit
     Process.flag(:trap_exit, true)
     monitors = :ets.new(:monitors, [:private])
-    init(pool_config, %State{pool_sup: pool_sup, monitors: monitors})
+    waiting = :queue.new
+    init(pool_config, %State{pool_sup: pool_sup, monitors: monitors, waiting: waiting, overflow: 0})
   end
 
   # These next four functions will pattern match on pool_config, attempt to
@@ -79,11 +80,12 @@ defmodule Pooly.PoolServer do
     init(rest, state)
   end
 
-  def handle_call(:checkout, {from_pid, _ref}, state) do
+  def handle_call({:checkout, block}, {from_pid, _ref} = from, state) do
     %{workers: workers,
       monitors: monitors,
       worker_sup: worker_sup,
       overflow: overflow,
+      waiting: waiting,
       max_overflow: max_overflow} = state
 
     # If workers is empty, then no workers can be assigned. Otherwise, this will
@@ -93,12 +95,23 @@ defmodule Pooly.PoolServer do
         ref = Process.monitor(from_pid)
         true = :ets.insert(monitors, {worker, ref})
         {:reply, worker, %{state | workers: rest}}
+
       [] when max_overflow > 0 and overflow < max_overflow ->
         {worker, ref} = new_worker(worker_sup, from_pid)
         true = :ets.insert(monitors, {worker, ref})
         {:reply, worker, %{state | overflow: overflow + 1}}
+
+      # If nothing available and user wants to block (aka wait), this places the
+      # user in the queue.
+      [] when block == true ->
+        ref = Process.monitor(from_pid)
+        waiting = :queue.in({from, ref}, waiting)
+        {:noreply, %{state | waiting: waiting}, :infinity}
+
+      # Replies with a status of ":full" if the user doesn't want to wait and no
+      # available workers or overflow.
       [] ->
-        {:reply, :noproc, state}
+        {:reply, :full, state}
     end
   end
 
@@ -248,9 +261,9 @@ defmodule Pooly.PoolServer do
     # TODO add "monitor: empty" to state here once implemented.
     if overflow > 0 do
       :ok = dismiss_worker(worker_sup, pid)
-      %{state | overflow: overflow - 1}
+      %{state | waiting: :empty, overflow: overflow - 1}
     else
-      %{state | workers: [pid | workers], overflow: 0}
+      %{state | waiting: :empty, workers: [pid | workers], overflow: 0}
     end
   end
 

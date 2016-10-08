@@ -11,8 +11,8 @@ defmodule Pooly.Server do
   end
 
   # Use a dynamically constructed atom to refer to a respective pool server
-  def checkout(pool_name) do
-    GenServer.call(:"#{pool_name}Server", :checkout)
+  def checkout(pool_name, block, timeout) do
+    Pooly.PoolServer.checkout(pool_name, block, timeout)
   end
 
   # Use a dynamically constructed atom to refer to a respective pool server
