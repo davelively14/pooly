@@ -169,7 +169,7 @@ defmodule Pooly.PoolServer do
 
         # Creates a replacement worker using the private function new_worker and
         # combines it with the existing workers list from the current state.
-        new_state = %{state | workers: [new_worker(pool_sup)|workers]}
+        new_state = handle_worker_exit(pid, state)
         {:noreply, new_state}
       _ ->
         {:noreply, state}
@@ -249,6 +249,22 @@ defmodule Pooly.PoolServer do
       %{state | overflow: overflow - 1}
     else
       %{state | workers: [pid | workers], overflow: 0}
+    end
+  end
+
+  # This simply checks to see if the pool is overflowed. If it is, we just
+  # decrement the counter. No need to add the worker back to the pool if it is
+  # overflowed. Not sure why we pull monitors from state here...it's unused.
+  def handle_worker_exit(pid, state) do
+    %{worker_sup: worker_sup,
+      workers: workers,
+      monitors: monitors,
+      overflow: overlfow} = state
+
+    if overlfow > 0 do
+      %{state | overlfow: overlfow - 1}
+    else
+      %{state | workers: [new_worker(worker_sup) | workers]}
     end
   end
 
