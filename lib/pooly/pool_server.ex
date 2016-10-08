@@ -107,7 +107,7 @@ defmodule Pooly.PoolServer do
     {:reply, {length(workers), :ets.info(monitors, :size)}, state}
   end
 
-  def handle_cast({:checkin, worker}, %{workers: workers, monitors: monitors} = state) do
+  def handle_cast({:checkin, worker}, %{monitors: monitors} = state) do
 
     # If the return is a pid and ref, then we demonitor the consumer process and
     # remove the entry from the ETS. If entry not found, then nothing is done.
@@ -115,7 +115,8 @@ defmodule Pooly.PoolServer do
       [{pid, ref}] ->
         true = Process.demonitor(ref)
         true = :ets.delete(monitors, pid)
-        {:noreply, %{state | workers: [pid|workers]}}
+        new_state = handle_checkin(pid, state)
+        {:noreply, new_state}
       [] ->
         {:noreply, state}
     end
@@ -251,7 +252,7 @@ defmodule Pooly.PoolServer do
     end
   end
 
-  # Unlinks the woker and terminates the child. 
+  # Unlinks the woker and terminates the child.
   defp dismiss_worker(sup, pid) do
     true = Process.unlink(pid)
     Supervisor.terminate_child(sup, pid)
