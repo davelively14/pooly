@@ -285,19 +285,35 @@ defmodule Pooly.PoolServer do
     end
   end
 
-  # This simply checks to see if the pool is overflowed. If it is, we just
-  # decrement the counter. No need to add the worker back to the pool if it is
-  # overflowed. Not sure why we pull monitors from state here...it's unused.
   def handle_worker_exit(pid, state) do
     %{worker_sup: worker_sup,
       workers: workers,
       monitors: monitors,
-      overflow: overlfow} = state
+      waiting: waiting,
+      overflow: overflow} = state
 
-    if overlfow > 0 do
-      %{state | overlfow: overlfow - 1}
-    else
-      %{state | workers: [new_worker(worker_sup) | workers]}
+    case :queue.out(waiting) do
+
+      # Similar to handle_checkin's first match on the same case. Creates a new
+      # worker, monitors it, and returns it to the waiting consumer process.
+      # Returns an updated state with remaining blocked processes.
+      {{:value, {from, ref}}, left} ->
+        new_worker = new_worker(worker_sup)
+        true = :ets.insert(monitors, {new_worker, ref})
+        GenServer.reply(from, new_worker)
+        %{state | waiting: left}
+
+      # If no queue of blocked processes and an overflow, simply decrement the
+      # overflow counter and redundantly set waiting to empty.
+      {:empty, empty} when overflow > 0 ->
+        %{state | overflow: overflow - 1, waiting: empty}
+
+      # If no overflow, creates a new worker process, assigns it to the workers
+      # pool, and returns the state with the new worker pool and a redundant
+      # empty list for waiting (unnecessary).
+      {:empty, empty} ->
+        workers = [new_worker(worker_sup) | workers]
+        %{state | workers: workers, waiting: empty}
     end
   end
 
