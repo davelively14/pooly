@@ -102,7 +102,10 @@ defmodule Pooly.PoolServer do
         {:reply, worker, %{state | overflow: overflow + 1}}
 
       # If nothing available and user wants to block (aka wait), this places the
-      # user in the queue.
+      # user in the queue and monitors the process. By passing {:noreply...},
+      # this will effectively block the conusmer process for :infinity. It will
+      # simply wait until the GenServer replies with something...which it will
+      # do, when a worker becomes available, in handle_checkin (pvt fun)
       [] when block == true ->
         ref = Process.monitor(from_pid)
         waiting = :queue.in({from, ref}, waiting)
@@ -253,17 +256,32 @@ defmodule Pooly.PoolServer do
     %{worker_sup: worker_sup,
       workers: workers,
       monitors: monitors,
+      waiting: waiting,
       overflow: overflow} = state
 
-    # Checks the pool to see if any overflow. If so, terminates process via
-    # private function dismiss_worker, reduces overflow count by one. If no
-    # overflow, simply adds the pid back to the workers pool.
-    # TODO add "monitor: empty" to state here once implemented.
-    if overflow > 0 do
-      :ok = dismiss_worker(worker_sup, pid)
-      %{state | waiting: :empty, overflow: overflow - 1}
-    else
-      %{state | waiting: :empty, workers: [pid | workers], overflow: 0}
+    case :queue.out(waiting) do
+
+      # Executes if there is a consumer process being blocked. Matches on :value
+      # and receives the pid of the blocked process (from) and the remaining
+      # list of blocked processes (left). Replies to the process that had been
+      # blocked in handle_call :checkout, effectively ublocking it and providing
+      # the newly checked in worker.
+      {{:value, {from, ref}}, left} ->
+        true = :ets.insert(monitors, {pid, ref})
+        GenServer.reply(from, pid)
+        %{state | waiting: left}
+
+      # If there is no queue of blocked processes and an overflow, we simply
+      # dismissed the worker and reduce the overflow count.
+      {:empty, empty} when overflow > 0 ->
+        :ok = dismiss_worker(worker_sup, pid)
+        %{state | waiting: empty, overflow: overflow - 1}
+
+      # If no overflow, we add the pid back to the workers list in state, pass
+      # the empty list to waiting (seems unnecessary), and set overflow to 0
+      # (again, seems unnecessary).
+      {:empty, empty} ->
+        %{state | waiting: empty, workers: [pid | workers], overflow: 0}
     end
   end
 
