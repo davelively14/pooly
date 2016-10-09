@@ -9,7 +9,7 @@ defmodule Pooly do
     # Each pool gets its own configuration
     pools_config =
       [
-        [name: "Pool1", mfa: {SampleWorker, :start_link, []}, size: 2, max_overflow: 3],
+        [name: "Pool1", mfa: {SampleWorker, :start_link, []}, size: 2, max_overflow: 1],
         [name: "Pool2", mfa: {SampleWorker, :start_link, []}, size: 3, max_overflow: 0],
         [name: "Pool3", mfa: {SampleWorker, :start_link, []}, size: 4, max_overflow: 0],
       ]
